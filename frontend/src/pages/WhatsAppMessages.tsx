@@ -1,0 +1,31 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Check, CheckCheck, Search, X } from 'lucide-react';
+import { api, seedMessages } from '../utils';
+import clsx from 'clsx';
+export default function WhatsAppMessages() {
+  const [messages, setMessages] = useState<any[]>([]); const [loading, setLoading] = useState(true); const [searchTerm, setSearchTerm] = useState(''); const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
+  const loadMessages = async () => { try { const data = await api.get('/messages'); setMessages(data.length ? data : seedMessages); } catch { setMessages(seedMessages); } finally { setLoading(false); } };
+  useEffect(() => {
+    void loadMessages();
+    const interval = setInterval(() => { api.post('/messages/simulate-delivery').then(loadMessages).catch(() => undefined); }, 15000);
+    const onUpdate = () => void loadMessages();
+    window.addEventListener('nexaflow:data-updated', onUpdate);
+    return () => { clearInterval(interval); window.removeEventListener('nexaflow:data-updated', onUpdate); };
+  }, []);
+  const conversations = useMemo(() => {
+    const grouped: any[] = Object.values(messages.reduce((acc: Record<string, any>, msg: any) => {
+      const key = msg.customer_id;
+      if (!acc[key]) acc[key] = { customer_id: msg.customer_id, customer_name: msg.customer_name, customer_phone: msg.customer_phone, messages: [] };
+      acc[key].messages.push(msg);
+      return acc;
+    }, {}));
+    grouped.forEach((conv) => {
+      conv.messages.sort((a: any, b: any) => (a.sent_at || '').localeCompare(b.sent_at || '') || a.id - b.id);
+    });
+    return grouped;
+  }, [messages]);
+  const filteredConversations = conversations.filter((conv: any) => !searchTerm || `${conv.customer_name} ${conv.customer_phone} ${conv.messages[conv.messages.length - 1]?.content}`.toLowerCase().includes(searchTerm.toLowerCase()));
+  const selectedConversation = filteredConversations.find((c: any) => c.customer_id === selectedCustomerId) || filteredConversations[0] || null;
+  if (loading) return <div className="page-container"><div className="card empty-state">Loading conversations...</div></div>;
+  return <div className="page-container"><div className="page-heading"><div><span className="eyebrow">ENGAGEMENT</span><h1>WhatsApp messages</h1><p><span className="status-pill review">Simulated WhatsApp · demo mode</span></p></div></div><div className="card message-card"><div className="conversation-list"><div className="page-search"><Search size={15} /><input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search name, phone or message..." />{searchTerm && <button onClick={() => setSearchTerm('')}><X size={14} /></button>}</div><div className="conversation-scroll">{filteredConversations.map((conv: any) => { const lastMsg = conv.messages[conv.messages.length - 1]; const initials = conv.customer_name.split(' ').map((word: string) => word[0]).join('').slice(0, 2); return <button key={conv.customer_id} onClick={() => setSelectedCustomerId(conv.customer_id)} className={clsx('conversation-row', selectedConversation?.customer_id === conv.customer_id && 'selected')}><span className="avatar avatar-small">{initials}</span><span className="recipient-copy"><strong>{conv.customer_name}</strong><small>{conv.customer_phone}</small><small>{lastMsg.content}</small></span></button>; })}{filteredConversations.length === 0 && <div className="empty-state"><p>No matching conversations.</p></div>}</div></div><div className="chat-view">{selectedConversation ? <><div className="chat-head"><span className="avatar avatar-small">{selectedConversation.customer_name.split(' ').map((word: string) => word[0]).join('').slice(0, 2)}</span><div><strong>{selectedConversation.customer_name}</strong><small>{selectedConversation.customer_phone}</small></div></div><div className="chat-messages">{selectedConversation.messages.map((msg: any) => <div key={msg.id} className="message-bubble">{msg.match_reason && <div style={{ fontSize: 10, color: '#168c72', marginBottom: 4, fontWeight: 600 }}>{msg.match_reason}</div>}<div>{msg.content}</div><small>{msg.sent_at ? new Date(msg.sent_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'Pending'} {msg.status === 'sent' && <Check size={12} />}{['delivered', 'read', 'clicked'].includes(msg.status) && <CheckCheck size={12} />}</small></div>)}</div><div className="chat-input">Simulated conversation · demo mode</div></> : <div className="empty-state"><h3>Select a conversation</h3><p>Choose a customer to view messages.</p></div>}</div></div></div>;
+}
