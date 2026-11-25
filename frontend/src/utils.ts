@@ -1,4 +1,7 @@
-export const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const configuredApiBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
+const isLocalhostBrowser = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const isConfiguredLocal = !configuredApiBase || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(configuredApiBase);
+export const API_BASE = !isLocalhostBrowser && isConfiguredLocal ? '/api' : (configuredApiBase || 'http://localhost:8000/api');
 
 export type DemoUser = { businessName: string; email: string };
 
