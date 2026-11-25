@@ -1,14 +1,27 @@
-import { supabase } from '../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { API_BASE } from '../utils';
 
+function ensureSupabaseConfigured() {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase env vars missing in this build (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY). Set them in Netlify and redeploy with Clear cache.');
+  }
+}
+
 async function backendAuth<T>(path: string, body: unknown, token?: string): Promise<T> {
-  const response = await fetch(`${API_BASE}/auth${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify(body),
-  });
+  const url = `${API_BASE}/auth${path}`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Network error';
+    throw new Error(`${reason}: Cannot reach auth API at ${url}. Check VITE_API_BASE_URL and backend CORS/status.`);
+  }
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.detail || 'The email service is unavailable. Please try again.');
+  if (!response.ok) throw new Error(payload.detail || `Auth API error (${response.status}) from ${url}.`);
   return payload as T;
 }
 
@@ -29,6 +42,7 @@ export async function requestSignupOtp({ businessName, email, password }: { busi
 }
 
 export async function verifySignupOtp({ businessName, email, password, code }: { businessName: string; email: string; password: string; code: string }) {
+  ensureSupabaseConfigured();
   const cleanEmail = email.trim().toLowerCase();
   await backendAuth('/verify-otp', { email: cleanEmail, code: code.trim(), business_name: businessName.trim(), password });
   const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
@@ -37,6 +51,7 @@ export async function verifySignupOtp({ businessName, email, password, code }: {
 }
 
 export async function loginBusinessOwner({ email, password }: { email: string; password: string }) {
+  ensureSupabaseConfigured();
   const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
   if (error) throw error;
   return data;

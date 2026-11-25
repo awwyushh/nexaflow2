@@ -1,4 +1,4 @@
-const configuredApiBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
+const configuredApiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/+$/, '');
 const isLocalhostBrowser = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 const isConfiguredLocal = !configuredApiBase || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(configuredApiBase);
 export const API_BASE = !isLocalhostBrowser && isConfiguredLocal ? '/api' : (configuredApiBase || 'http://localhost:8000/api');
@@ -65,7 +65,7 @@ export class ApiHttpError extends Error {
 
 async function request(endpoint: string, options?: RequestInit) {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 8000);
+  const timeout = window.setTimeout(() => controller.abort(), 45000);
   try {
     const response = await fetch(`${API_BASE}${endpoint}`, { ...options, signal: controller.signal });
     if (!response.ok) {
