@@ -1,0 +1,15 @@
+/WhatsApp Image 2026-08-16 at 12.06.16.jpeg
+/WhatsApp Image 2026-08-16 at 12.06.17 (1).jpeg
+/WhatsApp Image 2026-08-16 at 12.06.17.jpeg
+.env
+**/.env
+!.env.example
+!**/.env.example
+.venv/
+backend/venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+node_modules/
+**/node_modules/
+frontend/dist/
